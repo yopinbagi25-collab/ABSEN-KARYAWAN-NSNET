@@ -179,21 +179,41 @@
             transform: translateY(-2px);
         }
 
-        button.btn-export {
-            background-color: var(--success);
-            color: var(--white);
-            border: none;
-            padding: 8px 15px;
-            width: auto;
-            cursor: pointer;
-            border-radius: 6px;
-            font-weight: bold;
-            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.4);
+        /* GAYA TOMBOL MENU BERKUNCI PIN */
+        .table-actions-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
         }
 
-        button.btn-export:hover {
-            background-color: #218838;
+        .btn-menu {
+            border: none;
+            padding: 6px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s, opacity 0.2s;
+            width: auto;
         }
+
+        .btn-menu:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .btn-darkmode { background-color: #334155; border: 1px solid #64748b; }
+        .btn-import { background-color: #8a2be2; }
+        .btn-export-csv { background-color: #28a745; }
+        .btn-backup { background-color: #007bff; }
+        .btn-restore { background-color: #0d9488; }
+        .btn-reset { background-color: #dc3545; }
 
         .btn-delete {
             background-color: var(--danger);
@@ -204,6 +224,7 @@
             cursor: pointer;
             font-weight: bold;
             font-size: 11px;
+            width: auto;
         }
 
         .btn-delete:hover {
@@ -286,11 +307,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .table-header h3 {
             font-weight: 800;
-            font-size: 18px;
+            font-size: 16px;
             color: var(--warning);
         }
 
@@ -406,8 +429,20 @@
 
     <div class="card">
         <div class="table-header">
-            <h3>Rekap Absensi Dan Gaji Harian Karyawan </h3>
-            <button class="btn-export" onclick="exportToCSV()">Export CSV</button>
+            <h3>REKAP ABSENSI DAN GAJI KARYAWAN</h3>
+            
+            <div class="table-actions-group">
+                <button class="btn-menu btn-darkmode" onclick="verifyAdminAndExecute('darkMode')">🌙 Dark</button>
+                <button class="btn-menu btn-import" onclick="verifyAdminAndExecute('importCSV')">📄 Import</button>
+                <input type="file" id="importFile" accept=".csv" style="display:none" onchange="processImportCSV(event)">
+                
+                <button class="btn-menu btn-export-csv" onclick="verifyAdminAndExecute('exportCSV')">📈 Export CSV</button>
+                <button class="btn-menu btn-backup" onclick="verifyAdminAndExecute('backupJSON')">📥 Backup</button>
+                <button class="btn-menu btn-restore" onclick="verifyAdminAndExecute('restoreJSON')">📤 Restore</button>
+                <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="processRestoreJSON(event)">
+                
+                <button class="btn-menu btn-reset" onclick="verifyAdminAndExecute('resetData')">🗑️ Reset</button>
+            </div>
         </div>
         
         <div class="table-scroll-container">
@@ -451,6 +486,7 @@
     const KANTOR_LAT = 0.520538; 
     const KANTOR_LON = 121.952507;
     const RADIUS_MAKSIMAL_METER = 20;
+    const PIN_RAHASIA_ADMIN = "Terlambat";
 
     function updateClock() {
         const now = new Date();
@@ -754,39 +790,63 @@
     });
 
     function hapusAbsen(id, nama) {
-        const pinAdmin = "Terlambat";
-        
         const inputPin = prompt(`MENGHAPUS ABSEN ${nama}\n\nMasukkan PIN Rahasia Admin:`);
-        
         if (inputPin === null) return;
 
-        if (inputPin === pinAdmin) {
+        if (inputPin === PIN_RAHASIA_ADMIN) {
             if (confirm(`PIN Benar!\nYakin ingin menghapus data absen dari ${nama}?`)) {
                 database.ref('absensi_nsnet/' + id).remove()
-                    .then(() => {
-                        alert(`Data absen ${nama} berhasil dihapus!`);
-                    })
-                    .catch((error) => {
-                        alert("Gagal menghapus data: " + error.message);
-                    });
+                    .then(() => alert(`Data absen ${nama} berhasil dihapus!`))
+                    .catch((error) => alert("Gagal menghapus data: " + error.message));
             }
         } else {
             alert("⚠️ PIN ADMIN SALAH!");
         }
     }
 
-    function exportToCSV() {
-        const pinAdmin = "Terlambat";
-        
-        const inputPin = prompt("EXPORT REKAP ABSENSI\n\nMasukkan PIN Rahasia Admin untuk mengunduh file:");
-        
+    // --- FUNGSI VERIFIKASI PIN ADMIN UNTUK SEMUA MENU ---
+    function verifyAdminAndExecute(actionType) {
+        const inputPin = prompt(`AKSES MENU ADMIN\n\nMasukkan PIN Rahasia Admin:`);
         if (inputPin === null) return;
 
-        if (inputPin !== pinAdmin) {
-            alert("⚠️ PIN ADMIN SALAH!\n\nAkses download hanya diberikan kepada Admin.");
-            return;
+        if (inputPin === PIN_RAHASIA_ADMIN) {
+            // PIN Benar, jalankan aksi sesuai menu yang diklik
+            if (actionType === 'darkMode') {
+                toggleDarkMode();
+            } else if (actionType === 'importCSV') {
+                document.getElementById('importFile').click();
+            } else if (actionType === 'exportCSV') {
+                executeExportCSV();
+            } else if (actionType === 'backupJSON') {
+                executeBackupJSON();
+            } else if (actionType === 'restoreJSON') {
+                document.getElementById('restoreFile').click();
+            } else if (actionType === 'resetData') {
+                executeResetData();
+            }
+        } else {
+            alert("⚠️ PIN ADMIN SALAH! Akses ditolak.");
         }
+    }
 
+    // --- EKsekusi Menu Setelah PIN Benar ---
+    let isDarkMode = true;
+    function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        if (isDarkMode) {
+            document.documentElement.style.setProperty('--bg-card', '#0d1b2a');
+            document.documentElement.style.setProperty('--table-row', '#021a36');
+            document.documentElement.style.setProperty('--table-row-alt', '#052247');
+            alert("Mode Gelap diaktifkan.");
+        } else {
+            document.documentElement.style.setProperty('--bg-card', '#1e293b');
+            document.documentElement.style.setProperty('--table-row', '#0f172a');
+            document.documentElement.style.setProperty('--table-row-alt', '#1e293b');
+            alert("Mode Terang / Alternatif diaktifkan.");
+        }
+    }
+
+    function executeExportCSV() {
         let table = document.getElementById("rekapTable");
         let rows = table.querySelectorAll("tr");
         let csv = [];
@@ -812,6 +872,59 @@
         downloadLink.style.display = "none";
         document.body.appendChild(downloadLink);
         downloadLink.click();
+    }
+
+    function executeBackupJSON() {
+        database.ref('absensi_nsnet').once('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) {
+                alert("Tidak ada data untuk dibackup!");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_absensi_nsnet_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        });
+    }
+
+    function processRestoreJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const jsonData = JSON.parse(e.target.result);
+                if (confirm("⚠️ PERINGATAN: Restore akan menimpa/menambah data di database Firebase dengan file JSON ini. Lanjutkan?")) {
+                    database.ref('absensi_nsnet').set(jsonData, (error) => {
+                        if (error) {
+                            alert("Gagal restore data: " + error.message);
+                        } else {
+                            alert("Restore database JSON berhasil!");
+                        }
+                    });
+                }
+            } catch (err) {
+                alert("File JSON tidak valid!");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function executeResetData() {
+        if (confirm("⚠️ APA ANDA YAKIN?\nSemua data absensi karyawan di server akan dihapus permanen!")) {
+            database.ref('absensi_nsnet').remove()
+                .then(() => alert("Semua data absensi berhasil di-reset/dihapus!"))
+                .catch((error) => alert("Gagal menghapus data: " + error.message));
+        }
+    }
+
+    function processImportCSV(event) {
+        alert("Fitur Import CSV memerlukan struktur kolom khusus database. Gunakan fitur Restore JSON untuk mengembalikan data utuh.");
     }
 </script>
 
